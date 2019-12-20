@@ -4,7 +4,7 @@
  *   Load(ByRef str)
  *   Dump(obj)
  * Compatibility:
- *   This has been tested and is known to work with versions: 2.0-a104 through 2.0-a108 .
+ *   This has been tested and is known to work with versions: 2.0-a104 through a108 .
  *   This will NOT work with versions: a103 and below.
  * Project repository:
  *   https://github.com/rothor/JSON_for_AutoHotkey2.0-a104
@@ -28,31 +28,15 @@ static Load(ByRef str)
 {
 	strObj := Json.StrManager.new(str)
 	
-	begin := 1
-	c := SubStr(strObj.str, begin, 1)
-	if (c == "{") {
-		end := Json.getClosingBrace(strObj, begin)
-		if (end == 0) {
-			return ""
-		}
-		if (SubStr(strObj.str, end + 1) != "") { ; make sure there are no chars after the object
-			return ""
-		}
-		return Json.LoadMap(strObj, begin, end)
-	}
-	else if (c == "[") {
-		end := Json.getClosingBracket(strObj, begin)
-		if (end == 0) {
-			return ""
-		}
-		if (SubStr(strObj.str, end + 1) != "") { ; make sure there are no chars after the object
-			return ""
-		}
-		return Json.LoadArray(strObj, begin, end)
-	}
-	else {
+	elementBegin := 1
+	success := Json.getElement(strObj, elementBegin, element, elementEnd)
+	if (!success) {
 		return ""
 	}
+	if (SubStr(strObj.str, elementEnd + 1) != "") { ; make sure there are no chars after the object
+		return ""
+	}
+	return element
 }
 
 class StrManager
@@ -80,68 +64,11 @@ static LoadArray(strObj, begin, end)
 		return arrayOut
 	}
 	while (true) {
-		c := SubStr(strObj.str, elementBegin, 1)
-		elementEnd := elementBegin
-		if (c == "{") { ; if it's an object
-			elementEnd := Json.getClosingBrace(strObj, elementBegin)
-			if (elementEnd == 0) {
-				return ""
-			}
-			element := Json.LoadMap(strObj, elementBegin, elementEnd)
-			if (element == "") {
-				return ""
-			}
-			else {
-				arrayOut.Push(element)
-			}
-		}
-		else if (c == "[") { ; if it's an array
-			elementEnd := Json.getClosingBracket(strObj, elementBegin)
-			if (elementEnd == 0) {
-				return ""
-			}
-			element := Json.LoadArray(strObj, elementBegin, elementEnd)
-			if (element == "") {
-				return ""
-			}
-			else {
-				arrayOut.Push(element)
-			}
-		}
-		else if (c == "`"") { ; if it's a string
-			elementEnd := Json.getClosingQuote(strObj, elementBegin)
-			if (elementEnd == 0) {
-				return ""
-			}
-			element := strObj.getSegment(elementBegin + 1, elementEnd - 1) ; get str between quotes
-			if (Json.unescapeStr(element, elementUnescaped) = 0) {
-				return ""
-			}
-			arrayOut.Push(elementUnescaped)
-		}
-		else if (InStr("0123456789.-", c)) { ; if it's a number
-			elementEnd := Json.getNumEnd(strObj, elementBegin)
-			if (elementEnd == 0) {
-				return ""
-			}
-			element := strObj.getSegment(elementBegin, elementEnd) + 0 ; force number
-			arrayOut.Push(element)
-		}
-		else if (c = "t" and SubStr(strObj.str, elementBegin, 4) = "true") {
-			elementEnd := elementBegin + 3
-			arrayOut.Push(1)
-		}
-		else if (c = "f" and SubStr(strObj.str, elementBegin, 5) = "false") {
-			elementEnd := elementBegin + 4
-			arrayOut.Push(0)
-		}
-		else if (c = "n" and SubStr(strObj.str, elementBegin, 4) = "null") { ; if it's null
-			elementEnd := elementBegin + 3
-			arrayOut.Push(Json.Null)
-		}
-		else {
+		success := Json.getElement(strObj, elementBegin, element, elementEnd)
+		if (!success) {
 			return ""
 		}
+		arrayOut.Push(element)
 		
 		if (elementEnd == end - 1) { ; if we have reached the end of the string
 			break
@@ -175,7 +102,7 @@ static LoadMap(strObj, begin, end)
 		if (c != "`"") {
 			return ""
 		}
-		keyEnd := Json.getClosingQuote(strObj, keyBegin)
+		keyEnd := Json.getClosingQuotePos(strObj, keyBegin)
 		if (keyEnd == 0) {
 			return ""
 		}
@@ -189,68 +116,11 @@ static LoadMap(strObj, begin, end)
 		
 		; Get value
 		elementBegin := keyEnd + 2
-		elementEnd := elementBegin ; It doesn't matter what I set it to here.
-		c := SubStr(strObj.str, elementBegin, 1)
-		if (c == "{") { ; if it's an object
-			elementEnd := Json.getClosingBrace(strObj, elementBegin)
-			if (elementEnd == 0) {
-				return ""
-			}
-			element := Json.LoadMap(strObj, elementBegin, elementEnd)
-			if (element == "") {
-				return ""
-			}
-			else {
-				objOut[keyUnescaped] := element
-			}
-		}
-		else if (c == "[") { ; if it's an array
-			elementEnd := Json.getClosingBracket(strObj, elementBegin)
-			if (elementEnd == 0) {
-				return ""
-			}
-			element := Json.LoadArray(strObj, elementBegin, elementEnd)
-			if (element == "") {
-				return ""
-			}
-			else {
-				objOut[keyUnescaped] := element
-			}
-		}
-		else if (c == "`"") { ; if it's a string
-			elementEnd := Json.getClosingQuote(strObj, elementBegin)
-			if (elementEnd == 0) {
-				return ""
-			}
-			element := strObj.getSegment(elementBegin + 1, elementEnd - 1) ; get str between quotes
-			if (Json.unescapeStr(element, elementUnescaped) = 0) {
-				return ""
-			}
-			objOut[keyUnescaped] := elementUnescaped
-		}
-		else if (InStr("0123456789.-", c)) { ; if it's a number
-			elementEnd := Json.getNumEnd(strObj, elementBegin)
-			if (elementEnd == 0) {
-				return ""
-			}
-			element := strObj.getSegment(elementBegin, elementEnd)
-			objOut[keyUnescaped] := element + 0 ; force number
-		}
-		else if (c = "t" and SubStr(strObj.str, elementBegin, 4) = "true") {
-			elementEnd := elementBegin + 3
-			objOut[keyUnescaped] := 1
-		}
-		else if (c = "f" and SubStr(strObj.str, elementBegin, 5) = "false") {
-			elementEnd := elementBegin + 4
-			objOut[keyUnescaped] := 0
-		}
-		else if (c = "n" and SubStr(strObj.str, elementBegin, 4) = "null") { ; if it's null
-			elementEnd := elementBegin + 3
-			objOut[keyUnescaped] := Json.Null
-		}
-		else {
+		success := Json.getElement(strObj, elementBegin, element, elementEnd)
+		if (!success) {
 			return ""
 		}
+		objOut[keyUnescaped] := element
 		
 		if (elementEnd == end - 1) { ; if we have reached the end of the string
 			break
@@ -269,6 +139,73 @@ static LoadMap(strObj, begin, end)
 	}
 	
 	return objOut
+}
+
+; Returns 1 on success, 0 on failure
+static getElement(strObj, elementBegin, ByRef element, ByRef elementEnd)
+{
+	c := SubStr(strObj.str, elementBegin, 1)
+	if (c == "{") { ; if it's an object
+		elementEnd := Json.getClosingBracePos(strObj, elementBegin)
+		if (elementEnd == 0) {
+			return 0
+		}
+		element := Json.LoadMap(strObj, elementBegin, elementEnd)
+		if (element == "") {
+			return 0
+		}
+		return 1
+	}
+	else if (c == "[") { ; if it's an array
+		elementEnd := Json.getClosingBracketPos(strObj, elementBegin)
+		if (elementEnd == 0) {
+			return 0
+		}
+		element := Json.LoadArray(strObj, elementBegin, elementEnd)
+		if (element == "") {
+			return 0
+		}
+		return 1
+	}
+	else if (c == "`"") { ; if it's a string
+		elementEnd := Json.getClosingQuotePos(strObj, elementBegin)
+		if (elementEnd == 0) {
+			return 0
+		}
+		element := strObj.getSegment(elementBegin + 1, elementEnd - 1) ; get str between quotes
+		if (Json.unescapeStr(element, elementUnescaped) = 0) {
+			return 0
+		}
+		element := elementUnescaped
+		return 1
+	}
+	else if (InStr("0123456789.-", c)) { ; if it's a number
+		elementEnd := Json.getNumEndPos(strObj, elementBegin)
+		if (elementEnd == 0) {
+			return 0
+		}
+		element := strObj.getSegment(elementBegin, elementEnd)
+		element := element + 0 ; force number
+		return 1
+	}
+	else if (c = "t" and SubStr(strObj.str, elementBegin, 4) = "true") {
+		elementEnd := elementBegin + 3
+		element := 1
+		return 1
+	}
+	else if (c = "f" and SubStr(strObj.str, elementBegin, 5) = "false") {
+		elementEnd := elementBegin + 4
+		element := 0
+		return 1
+	}
+	else if (c = "n" and SubStr(strObj.str, elementBegin, 4) = "null") { ; if it's null
+		elementEnd := elementBegin + 3
+		element := Json.Null
+		return 1
+	}
+	else {
+		return 0
+	}
 }
 
 ; Returns 1 on success, 0 on failure
@@ -333,7 +270,7 @@ static unescapeStr(str, ByRef outStr)
 }
 
 ; Returns 0 on failure
-static getClosingBracket(strObj, begin)
+static getClosingBracketPos(strObj, begin)
 {
 	pos := begin + 1
 	insideStr := false
@@ -371,7 +308,7 @@ static getClosingBracket(strObj, begin)
 }
 
 ; Returns 0 on failure
-static getClosingBrace(strObj, begin)
+static getClosingBracePos(strObj, begin)
 {
 	pos := begin + 1
 	insideStr := false
@@ -409,7 +346,7 @@ static getClosingBrace(strObj, begin)
 }
 
 ; Returns 0 on failure
-static getClosingQuote(strObj, begin)
+static getClosingQuotePos(strObj, begin)
 {
 	pos := begin + 1
 	ignoreNextQuote := false
@@ -433,7 +370,7 @@ static getClosingQuote(strObj, begin)
 }
 
 ; Returns 0 on failure
-static getNumEnd(strObj, begin)
+static getNumEndPos(strObj, begin)
 {
 	pos := begin + 1
 	while (pos <= strObj.length) {
@@ -502,7 +439,7 @@ static Null := Object()
  *   Returns an empty string on failure.
  * Notes:
  *   While Dump converts Objects and Maps to JSON objects, Load converts all JSON objects
- *     to Maps. Therefore, when Dump'ing and Load'ing an Object, you'll end up
+ *     to Maps. Therefore, if you Dump and then Load an Object, you'll end up
  *     with a Map, not an Object.
  *   If you want to Dump a value of 'null', set it to Json.Null .
  *     i.e. [2, Json.Null] will Dump to "[2,null]"
@@ -528,29 +465,14 @@ static DumpObj(obj)
 	str := "{"
 	first := true
 	for k, v in obj.OwnProps() {
-		if (first)
+		if (first) {
 			first := false
-		else
+		}
+		else {
 			str .= ","
+		}	
 		str .= "`"" k "`":"
-		if (v = Json.Null) {
-			str .= "null"
-		}
-		else if (v is Map) {
-			str .= Json.DumpMap(v)
-		}
-		else if (v is Array) {
-			str .= Json.DumpArray(v)
-		}
-		else if (IsObject(v)) {
-			str .= Json.DumpObj(v)
-		}
-		else if (v is "number") { ; Integer or float
-			str .= v
-		}
-		else { ; String
-			str .= "`"" Json.escapeString(v) "`""
-		}
+		str .= Json.DumpVar(v)
 	}
 	
 	str .= "}"
@@ -562,29 +484,14 @@ static DumpMap(obj)
 	str := "{"
 	first := true
 	for k, v in obj {
-		if (first)
+		if (first) {
 			first := false
-		else
+		}
+		else {
 			str .= ","
+		}
 		str .= "`"" k "`":"
-		if (v = Json.Null) {
-			str .= "null"
-		}
-		else if (v is Map) {
-			str .= Json.DumpMap(v)
-		}
-		else if (v is Array) {
-			str .= Json.DumpArray(v)
-		}
-		else if (IsObject(v)) {
-			str .= Json.DumpObj(v)
-		}
-		else if (v is "number") { ; Integer or float
-			str .= v
-		}
-		else { ; String
-			str .= "`"" Json.escapeString(v) "`""
-		}
+		str .= Json.DumpVar(v)
 	}
 	str .= "}"
 	return str
@@ -596,32 +503,39 @@ static DumpArray(obj)
 	first := true
 	i := 1
 	while (i <= obj.Length) {
-		if (first)
+		if (first) {
 			first := false
-		else
+		}
+		else {
 			str .= ","
-		if (obj[i] = Json.Null) {
-			str .= "null"
 		}
-		else if (obj[i] is Map) {
-			str .= Json.DumpMap(obj[i])
-		}
-		else if (obj[i] is Array) {
-			str .= Json.DumpArray(obj[i])
-		}
-		else if (IsObject(obj[i])) {
-			str .= Json.DumpObj(obj[i])
-		}
-		else if (obj[i] is "number") { ; Integer or float
-			str .= obj[i]
-		}
-		else { ; String
-			str .= "`"" Json.escapeString(obj[i]) "`""
-		}
+		str .= Json.DumpVar(obj[i])
 		i++
 	}
 	str .= "]"
 	return str
+}
+
+static DumpVar(ByRef v)
+{
+	if (v is Map) {
+		return Json.DumpMap(v)
+	}
+	else if (v is Array) {
+		return Json.DumpArray(v)
+	}
+	else if (v = Json.Null) {
+		return "null"
+	}
+	else if (IsObject(v)) {
+		return Json.DumpObj(v)
+	}
+	else if (v is "number") { ; Integer or float
+		return (v "") ; force string
+	}
+	else { ; String
+		return ("`"" Json.escapeString(v) "`"")
+	}
 }
 
 static escapeString(ByRef str)
