@@ -2,7 +2,7 @@
  * The purpose of this script is to easily test future versions of AHK for breaks
  *   in compatibility with the Json class.
  * Just run this script with the version of AHK you want to test. It will create
- *   a text file 'results.txt'. If the file says '97/97' tests have succeeded,
+ *   a text file 'results.txt'. If the file says '101/101' tests have succeeded,
  *   then it is compatible with that version of AHK.
  * (Or at least, it probably is. These tests may not cover every possible input,
  *   but they cover the majority of use cases.)
@@ -167,6 +167,10 @@ strArr.Push("[`"1`"]")
 valArr.Push("1")
 strArr.Push("[`"[]`"]")
 valArr.Push("[]")
+strArr.Push("[`"0003`"]")
+valArr.Push("0003")
+strArr.Push("[`"42.16809`"]")
+valArr.Push("42.16809")
 strArr.Push("[`"abcdeABCDE asdf`"]")
 valArr.Push("abcdeABCDE asdf")
 strArr.Push("[`"\`"`"]")
@@ -177,8 +181,6 @@ strArr.Push("[`"\\a/`"]")
 valArr.Push("\a/")
 strArr.Push("[`"abc\u0060def`"]")
 valArr.Push("abc" Chr(0x60) "def")
-strArr.Push("[`"\`"\`"a\`"`"]")
-valArr.Push("`"`"a`"")
 strArr.Push("[`"\b\n\f\r\t`"]")
 valArr.Push("`b`n`f`r`t")
 strArr.Push("[`" %% `"]")
@@ -323,6 +325,12 @@ valArr := Array()
 strArr := Array()
 valArr.Push(Array(""))
 strArr.Push("[`"`"]")
+valArr.Push(Array("0003"))
+strArr.Push("[`"0003`"]")
+valArr.Push(Array("42.16809"))
+strArr.Push("[`"42.16809`"]")
+valArr.Push(Array("ab"))
+strArr.Push("[`"ab`"]")
 valArr.Push(Array("ab"))
 strArr.Push("[`"ab`"]")
 valArr.Push(Array("a`"b"))

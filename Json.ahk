@@ -530,11 +530,11 @@ static DumpVar(ByRef v)
 	else if (IsObject(v)) {
 		return Json.DumpObj(v)
 	}
-	else if (v is "number") { ; Integer or float
-		return (v "") ; force string
-	}
-	else { ; String
+	else if (Type(v) = "String") {
 		return ("`"" Json.escapeString(v) "`"")
+	}
+	else { ; Integer or float
+		return (v "") ; force string
 	}
 }
 
